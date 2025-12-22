@@ -92,6 +92,9 @@ class SoAExperiment:
         # 音を作成
         self._create_tone()
         
+        # Block 3用の遅延順序プールを事前生成（試行間の計算負荷をゼロに）
+        self.delay_order_pool = self._generate_delay_order_pool(n_patterns=20)
+        
         # データ記録用リスト
         self.trial_data = []
         
@@ -476,8 +479,8 @@ Block 3: テスト
         # キャッチ試行（Catch Trials）: 2水準 × 1回 = 2回
         catch_trials = CATCH_DELAYS * N_TRIALS_BLOCK3_CATCH
         
-        # 評価対象試行を「直前の試行との遅延差が250ms以下」になるようソート
-        sorted_targets = self._sort_delays_with_constraint(target_trials, max_diff=250)
+        # 事前計算したプールからランダムに1つ選択（試行間の計算負荷ゼロ）
+        sorted_targets = self.delay_order_pool[np.random.randint(len(self.delay_order_pool))].copy()
         
         # 全試行を結合（評価対象をソート済み、キャッチはランダム位置に挿入）
         all_delays = sorted_targets.copy()
@@ -495,6 +498,28 @@ Block 3: テスト
             trial_data = self.run_trial('Block3', i + 1, delay, show_rating=show_rating)
             self.trial_data.append(trial_data)
             core.wait(1.0)
+    
+    def _generate_delay_order_pool(self, n_patterns: int = 20, max_diff: int = 250) -> list:
+        """
+        Block 3用の遅延順序プールを事前生成
+        複数の「隣接する試行間の遅延差bmax_diff以下」を満たす順序を生成
+        
+        Args:
+            n_patterns: 生成するパターン数
+            max_diff: 最大許容遅延差（ms）
+        
+        Returns:
+            有効な遅延順序のリスト
+        """
+        pool = []
+        delays = TARGET_DELAYS.copy()
+        
+        for _ in range(n_patterns):
+            # Shuffle & Check方式で条件を満たす順序を生成
+            valid_order = self._sort_delays_with_constraint(delays, max_diff)
+            pool.append(valid_order)
+        
+        return pool
     
     def _sort_delays_with_constraint(self, delays: list, max_diff: int = 250) -> list:
         """
