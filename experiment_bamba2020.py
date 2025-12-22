@@ -19,17 +19,25 @@ import sys
 
 # ========== 実験設定 ==========
 # 遅延時間（ms）
-DELAYS = [0, 50, 100, 150, 200, 250, 300, 400, 500, 1000, 'negative']
+# 評価対象遅延（Target Trials）
+TARGET_DELAYS = [0, 50, 100, 150, 200, 250, 300, 400, 500]
+# キャッチ試行（Catch Trials - 評価なし）
+CATCH_DELAYS = ['negative', 1000]
 
 # 試行数設定
-N_TRIALS_BLOCK1 = 11  # Block 1 (No adaptation): 各遅延1回
-N_TRIALS_BLOCK2_LOW = 20  # Block 2 (Adaptation - Low): 0ms のみ
-N_TRIALS_BLOCK2_HIGH = 20  # Block 2 (Adaptation - High): N(0, 80^2)
-N_TRIALS_BLOCK3 = 11  # Block 3 (Test): 各遅延1回
+# Block 1: 評価対象9水準×3回 + キャッチ2水準×1回 = 29回
+N_TRIALS_BLOCK1_TARGET = 3  # 各評価対象遅延の繰り返し回数
+N_TRIALS_BLOCK1_CATCH = 1   # 各キャッチ試行の繰り返し回数
+# Block 2: Adaptation
+N_TRIALS_BLOCK2_LOW = 20
+N_TRIALS_BLOCK2_HIGH = 20
+# Block 3: 評価対象9水準×1回 + キャッチ2水準×1回 = 11回（×3ループ）
+N_TRIALS_BLOCK3_TARGET = 1
+N_TRIALS_BLOCK3_CATCH = 1
 
-# 画面設定
-WINDOW_SIZE = (1920, 1080)
-BAR_WIDTH = 800
+# 画面設定 (MacBook Air 2560x1664 Retina対応)
+WINDOW_SIZE = (1280, 832)
+BAR_WIDTH = 700
 BAR_HEIGHT = 20
 BAR_POS = (0, 0)
 
@@ -47,7 +55,7 @@ TONE_FREQUENCY = 440  # Hz
 TONE_DURATION = 0.05  # 50ms
 
 # SoA評定スケール
-SOA_SCALE_WIDTH = 800
+SOA_SCALE_WIDTH = 900
 SOA_SCALE_HEIGHT = 50
 
 # データ保存先
@@ -70,10 +78,9 @@ class SoAExperiment:
         
         # ウィンドウ作成
         self.win = visual.Window(
-            size=WINDOW_SIZE,
             units='pix',
             color='black',
-            fullscr=False
+            fullscr=True
         )
         
         # マウス
@@ -162,19 +169,24 @@ class SoAExperiment:
             text='',
             pos=(0, 100),
             height=30,
-            color='white'
+            color='white',
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         # SoA評定スライダー
         self.soa_slider = visual.Slider(
             win=self.win,
             ticks=(0, 100),
-            labels=('0%\n(感じなかった)', '50%', '100%\n(強く感じた)'),
+            labels=('0%\n(感じなかった)', '100%\n(強く感じた)'),
             pos=(0, 0),
             size=(SOA_SCALE_WIDTH, SOA_SCALE_HEIGHT),
             granularity=1,
             style='rating',
-            labelHeight=20
+            labelHeight=20,
+            font='Hiragino Sans'
         )
         
         self.soa_question = visual.TextStim(
@@ -182,7 +194,11 @@ class SoAExperiment:
             text='音が自分のクリックによって鳴ったと感じた程度を評定してください',
             pos=(0, 150),
             height=25,
-            color='white'
+            color='white',
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         self.soa_confirm = visual.TextStim(
@@ -190,7 +206,11 @@ class SoAExperiment:
             text='決定したらスペースキーを押してください',
             pos=(0, -150),
             height=20,
-            color='white'
+            color='white',
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
     
     def _create_tone(self):
@@ -227,7 +247,10 @@ class SoAExperiment:
             pos=(0, 0),
             height=30,
             color='white',
-            wrapWidth=1000
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         instruction.draw()
         self.win.flip()
@@ -251,17 +274,22 @@ class SoAExperiment:
         """
         trial_start = core.getTime()
         
-        # マウス位置を中央に強制的に移動
-        self.mouse.setPos((BAR_POS[0], BAR_POS[1]))
+        # マウス位置を中央に強制的に移動（フルスクリーン時はエラーを無視）
+        try:
+            self.mouse.setPos((BAR_POS[0], BAR_POS[1]))
+        except (AttributeError, RuntimeError):
+            # フルスクリーンモード時に発生するエラーを無視
+            pass
         
         # カーソルを中央にリセット
         left_edge = BAR_POS[0] - BAR_WIDTH / 2
         cursor_x = BAR_POS[0]  # 中央位置
         self.cursor.pos = (cursor_x, BAR_POS[1])
         
-        # 右端のゴール領域の閾値
+        # 右端のゴール領域の閾値（オレンジ領域の左端）
         right_threshold = BAR_POS[0] + BAR_WIDTH / 2 - GOAL_AREA_WIDTH
-        left_trigger = left_edge + 50  # 左端から少し進んだ位置
+        # Negative条件用: ゴール領域の左端をトリガーとする
+        goal_left_edge = right_threshold
         
         # 教示
         self.instruction_text.text = 'カーソルを右端まで動かしてクリックしてください'
@@ -285,9 +313,9 @@ class SoAExperiment:
             
             self.cursor.pos = (cursor_x, BAR_POS[1])
             
-            # 負の遅延の場合、トリガー領域を通過したら音を鳴らす
+            # 負の遅延の場合、ゴール領域の左端を通過したら音を鳴らす
             if delay == 'negative' and not tone_played:
-                if cursor_x > left_trigger and not trigger_passed:
+                if cursor_x >= goal_left_edge and not trigger_passed:
                     trigger_passed = True
                     self.tone.play()
                     tone_time = core.getTime()
@@ -372,7 +400,9 @@ class SoAExperiment:
         return self.soa_slider.getRating()
     
     def run_block1(self):
-        """Block 1 (No adaptation) を実行"""
+        """Block 1 (No adaptation/Baseline) を実行
+        評価対象9水準×3回 + キャッチ2水準×1回 = 合計29回
+        """
         self.show_instruction("""
 Block 1: ベースライン測定
 
@@ -382,12 +412,23 @@ Block 1: ベースライン測定
 準備ができたらスペースキーを押してください。
 """)
         
-        # 全遅延条件を1回ずつ
-        delays = [d for d in DELAYS if d != 'negative']  # 負の遅延は除外
-        np.random.shuffle(delays)
+        # 評価対象試行（Target Trials）: 9水準 × 3回 = 27回
+        target_trials = TARGET_DELAYS * N_TRIALS_BLOCK1_TARGET
         
-        for i, delay in enumerate(delays):
-            trial_data = self.run_trial('Block1', i + 1, delay, show_rating=True)
+        # キャッチ試行（Catch Trials）: 2水準 × 1回 = 2回
+        catch_trials = CATCH_DELAYS * N_TRIALS_BLOCK1_CATCH
+        
+        # 全試行を結合してシャッフル
+        all_delays = target_trials + catch_trials
+        np.random.shuffle(all_delays)
+        
+        for i, delay in enumerate(all_delays):
+            # キャッチ試行かどうか判定
+            is_catch = delay in CATCH_DELAYS
+            # キャッチ試行では評価を表示しない
+            show_rating = not is_catch
+            
+            trial_data = self.run_trial('Block1', i + 1, delay, show_rating=show_rating)
             self.trial_data.append(trial_data)
             core.wait(1.0)
     
@@ -416,7 +457,10 @@ Block 2: 学習フェーズ
             core.wait(0.5)
     
     def run_block3(self):
-        """Block 3 (Test) を実行"""
+        """Block 3 (Test) を実行
+        評価対象9水準×1回 + キャッチ2水準×1回 = 合計11回
+        遅延差が250ms以下になるようにソートして提示
+        """
         self.show_instruction("""
 Block 3: テスト
 
@@ -426,14 +470,63 @@ Block 3: テスト
 準備ができたらスペースキーを押してください。
 """)
         
-        # 全遅延条件を1回ずつ
-        delays = DELAYS.copy()
-        np.random.shuffle(delays)
+        # 評価対象試行（Target Trials）: 9水準 × 1回 = 9回
+        target_trials = TARGET_DELAYS * N_TRIALS_BLOCK3_TARGET
         
-        for i, delay in enumerate(delays):
-            trial_data = self.run_trial('Block3', i + 1, delay, show_rating=True)
+        # キャッチ試行（Catch Trials）: 2水準 × 1回 = 2回
+        catch_trials = CATCH_DELAYS * N_TRIALS_BLOCK3_CATCH
+        
+        # 評価対象試行を「直前の試行との遅延差が250ms以下」になるようソート
+        sorted_targets = self._sort_delays_with_constraint(target_trials, max_diff=250)
+        
+        # 全試行を結合（評価対象をソート済み、キャッチはランダム位置に挿入）
+        all_delays = sorted_targets.copy()
+        # キャッチ試行をランダムな位置に挿入
+        for catch_delay in catch_trials:
+            insert_pos = np.random.randint(0, len(all_delays) + 1)
+            all_delays.insert(insert_pos, catch_delay)
+        
+        for i, delay in enumerate(all_delays):
+            # キャッチ試行かどうか判定
+            is_catch = delay in CATCH_DELAYS
+            # キャッチ試行では評価を表示しない
+            show_rating = not is_catch
+            
+            trial_data = self.run_trial('Block3', i + 1, delay, show_rating=show_rating)
             self.trial_data.append(trial_data)
             core.wait(1.0)
+    
+    def _sort_delays_with_constraint(self, delays: list, max_diff: int = 250) -> list:
+        """
+        遅延リストを「直前の試行との遅延差がmax_diff以下」になるようソート
+        Shuffle & Check方式: 条件を満たすまでランダムシャッフルを繰り返す
+        
+        Args:
+            delays: 遅延リスト
+            max_diff: 最大許容遅延差（ms）
+        
+        Returns:
+            ソート済み遅延リスト
+        """
+        if len(delays) <= 1:
+            return delays
+        
+        # 条件を満たすまでシャッフルを繰り返す
+        while True:
+            # ランダムにシャッフル
+            shuffled = delays.copy()
+            np.random.shuffle(shuffled)
+            
+            # 全ての隣接ペアが条件を満たすかチェック
+            valid = True
+            for i in range(len(shuffled) - 1):
+                if abs(shuffled[i] - shuffled[i + 1]) > max_diff:
+                    valid = False
+                    break
+            
+            # 条件を満たしたら採用
+            if valid:
+                return shuffled
     
     def run(self):
         """実験全体を実行"""

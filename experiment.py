@@ -91,7 +91,11 @@ class BoundaryTriggerExperiment:
             text='',
             pos=(0, -300),
             height=config.INSTRUCTION_HEIGHT,
-            color=config.TEXT_COLOR
+            color=config.TEXT_COLOR,
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         self.block_text = visual.TextStim(
@@ -99,7 +103,11 @@ class BoundaryTriggerExperiment:
             text='',
             pos=(0, 400),
             height=config.TEXT_HEIGHT,
-            color=config.TEXT_COLOR
+            color=config.TEXT_COLOR,
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         # SoA評定スライダー
@@ -111,7 +119,8 @@ class BoundaryTriggerExperiment:
             size=(config.SOA_SLIDER_WIDTH, 50),
             granularity=config.SOA_SLIDER_GRANULARITY,
             style='rating',
-            labelHeight=20
+            labelHeight=20,
+            font='Hiragino Sans'
         )
         
         self.soa_text = visual.TextStim(
@@ -119,7 +128,11 @@ class BoundaryTriggerExperiment:
             text='音とクリックの順序を評定してください',
             pos=(0, 100),
             height=config.TEXT_HEIGHT,
-            color=config.TEXT_COLOR
+            color=config.TEXT_COLOR,
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         self.confirm_text = visual.TextStim(
@@ -127,7 +140,11 @@ class BoundaryTriggerExperiment:
             text='決定したらスペースキーを押してください',
             pos=(0, -100),
             height=config.INSTRUCTION_HEIGHT,
-            color=config.TEXT_COLOR
+            color=config.TEXT_COLOR,
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
     
     def show_instruction(self, text: str, wait_key: str = 'space'):
@@ -144,7 +161,10 @@ class BoundaryTriggerExperiment:
             pos=(0, 0),
             height=config.TEXT_HEIGHT,
             color=config.TEXT_COLOR,
-            wrapWidth=1000
+            wrapWidth=1200,
+            alignText='center',
+            anchorHoriz='center',
+            font='Hiragino Sans'
         )
         
         instruction.draw()
