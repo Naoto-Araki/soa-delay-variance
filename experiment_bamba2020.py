@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+from scipy import stats
 import sys
 
 # ========== 実験設定 ==========
@@ -28,9 +29,9 @@ CATCH_DELAYS = ['negative', 1000]
 # Block 1: 評価対象9水準×3回 + キャッチ2水準×1回 = 29回
 N_TRIALS_BLOCK1_TARGET = 3  # 各評価対象遅延の繰り返し回数
 N_TRIALS_BLOCK1_CATCH = 1   # 各キャッチ試行の繰り返し回数
-# Block 2: Adaptation
-N_TRIALS_BLOCK2_LOW = 20
-N_TRIALS_BLOCK2_HIGH = 20
+# Block 2: Adaptation (不確実性学習)
+N_TRIALS_BLOCK2_LOW = 160   # Low条件: 0ms固定で160回
+N_TRIALS_BLOCK2_HIGH = 200  # High条件: N(0,80^2)で200回（離散化）
 # Block 3: 評価対象9水準×1回 + キャッチ2水準×1回 = 11回（×3ループ）
 N_TRIALS_BLOCK3_TARGET = 1
 N_TRIALS_BLOCK3_CATCH = 1
@@ -59,7 +60,7 @@ SOA_SCALE_WIDTH = 900
 SOA_SCALE_HEIGHT = 50
 
 # データ保存先
-DATA_DIR = Path('data')
+DATA_DIR = Path('data_bamba')
 DATA_DIR.mkdir(exist_ok=True)
 
 
@@ -436,8 +437,67 @@ Block 1: ベースライン測定
             self.trial_data.append(trial_data)
             core.wait(1.0)
     
+    def _generate_high_uncertainty_delays(self) -> list:
+        """
+        High条件用の遅延リストを生成
+        - 正規分布N(0, 80²)に基づく離散化
+        - 各ビンに最低1回を保証
+        - 合計200回
+        
+        Returns:
+            遅延リスト（200要素）
+        """
+        # 離散化ビン
+        delay_bins = TARGET_DELAYS  # [0, 50, 100, 150, 200, 250, 300, 400, 500]
+        n_bins = len(delay_bins)
+        total_trials = N_TRIALS_BLOCK2_HIGH  # 200
+        
+        # Step 1: 各ビンに最低1回を保証
+        bin_counts = {delay: 1 for delay in delay_bins}
+        remaining_trials = total_trials - n_bins  # 200 - 9 = 191
+        
+        # Step 2: 正規分布の確率密度を計算
+        probabilities = {}
+        for delay in delay_bins:
+            probabilities[delay] = stats.norm.pdf(delay, loc=0, scale=80)
+        
+        # 確率の合計で正規化
+        total_prob = sum(probabilities.values())
+        normalized_probs = {d: p/total_prob for d, p in probabilities.items()}
+        
+        # Step 3: 残り試行を確率に従って配分
+        for delay in delay_bins:
+            additional = int(remaining_trials * normalized_probs[delay])
+            bin_counts[delay] += additional
+        
+        # Step 4: 端数調整（合計が200になるよう）
+        current_total = sum(bin_counts.values())
+        adjustment = total_trials - current_total
+        
+        # 最も頻度が高いビン（0ms）で調整
+        bin_counts[0] += adjustment
+        
+        # Step 5: リスト化
+        delay_list = []
+        for delay, count in bin_counts.items():
+            delay_list.extend([delay] * count)
+        
+        # シャッフル
+        np.random.shuffle(delay_list)
+        
+        print(f"\n=== High条件の遅延分布 ===")
+        for delay in delay_bins:
+            print(f"  {delay}ms: {bin_counts[delay]}回 ({bin_counts[delay]/total_trials*100:.1f}%)")
+        print(f"  合計: {len(delay_list)}回\n")
+        
+        return delay_list
+    
     def run_block2(self):
-        """Block 2 (Adaptation) を実行"""
+        """Block 2 (Adaptation) を実行
+        不確実性学習フェーズ（SoA評定なし）
+        - Low条件: 0ms固定で160回
+        - High条件: N(0, 80²)離散化で200回
+        """
         self.show_instruction("""
 Block 2: 学習フェーズ
 
@@ -448,17 +508,20 @@ Block 2: 学習フェーズ
 """)
         
         if self.condition == 'Low':
-            # Low条件: 0msのみ
+            # Low条件: 0ms固定で160回
             delays = [0] * N_TRIALS_BLOCK2_LOW
+            print(f"\n=== Low条件: 0ms固定 × {N_TRIALS_BLOCK2_LOW}回 ===\n")
         else:
-            # High条件: N(0, 80^2)
-            delays = np.random.normal(0, 80, N_TRIALS_BLOCK2_HIGH)
-            delays = np.clip(delays, 0, 500)  # 0-500msに制限
+            # High条件: 正規分布N(0, 80²)の離散化で200回
+            delays = self._generate_high_uncertainty_delays()
         
         for i, delay in enumerate(delays):
             trial_data = self.run_trial('Block2', i + 1, delay, show_rating=False)
             self.trial_data.append(trial_data)
-            core.wait(0.5)
+            
+            # ITI: 500-800msのランダムな間隔
+            iti = np.random.uniform(0.5, 0.8)
+            core.wait(iti)
     
     def run_block3(self):
         """Block 3 (Test) を実行
