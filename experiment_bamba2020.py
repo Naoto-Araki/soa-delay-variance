@@ -83,8 +83,8 @@ class SoAExperiment:
             fullscr=True
         )
         
-        # マウス
-        self.mouse = event.Mouse(visible=True, win=self.win)
+        # マウス（カーソルは非表示、赤い線のみ表示）
+        self.mouse = event.Mouse(visible=False, win=self.win)
         
         # 画面要素を作成
         self._create_visual_elements()
@@ -355,10 +355,10 @@ class SoAExperiment:
         # 音が鳴るまで待機
         core.wait(0.2)
         
-        # SoA評定
+        # SoA評定（紙で回収するためコメントアウト）
         soa_rating = None
-        if show_rating:
-            soa_rating = self.get_soa_rating()
+        # if show_rating:
+        #     soa_rating = self.get_soa_rating()
         
         # データ記録
         trial_data = {
@@ -375,32 +375,33 @@ class SoAExperiment:
         
         return trial_data
     
-    def get_soa_rating(self) -> float:
-        """SoA評定を取得"""
-        self.soa_slider.reset()
-        self.soa_slider.markerPos = 50
-        
-        responded = False
-        
-        while not responded:
-            self.soa_question.draw()
-            self.soa_slider.draw()
-            self.soa_confirm.draw()
-            self.win.flip()
-            
-            try:
-                keys = event.getKeys()
-                if 'space' in keys:
-                    if self.soa_slider.getRating() is not None:
-                        responded = True
-                
-                if 'escape' in keys:
-                    self.quit()
-            except AttributeError:
-                core.wait(0.01)
-                continue
-        
-        return self.soa_slider.getRating()
+    # SoA評定画面（紙で回収するためコメントアウト）
+    # def get_soa_rating(self) -> float:
+    #     """SoA評定を取得"""
+    #     self.soa_slider.reset()
+    #     self.soa_slider.markerPos = 50
+    #     
+    #     responded = False
+    #     
+    #     while not responded:
+    #         self.soa_question.draw()
+    #         self.soa_slider.draw()
+    #         self.soa_confirm.draw()
+    #         self.win.flip()
+    #         
+    #         try:
+    #             keys = event.getKeys()
+    #             if 'space' in keys:
+    #                 if self.soa_slider.getRating() is not None:
+    #                     responded = True
+    #             
+    #             if 'escape' in keys:
+    #                 self.quit()
+    #         except AttributeError:
+    #             core.wait(0.01)
+    #             continue
+    #     
+    #     return self.soa_slider.getRating()
     
     def run_block1(self):
         """Block 1 (No adaptation/Baseline) を実行
