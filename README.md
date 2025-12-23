@@ -50,10 +50,22 @@ python experiment_bamba2020.py
 python3.10 -m venv .venv
 
 # パッケージをインストール
-./.venv/bin/pip install psychopy numpy pandas matplotlib
+./.venv/bin/pip install psychopy numpy pandas matplotlib seaborn
 
 # 仮想環境を有効化
 source .venv/bin/activate
+```
+
+**仮想環境の使い方：**
+```bash
+# 仮想環境に入る
+source .venv/bin/activate
+
+# 実験を実行
+python experiment_bamba2020.py
+
+# 仮想環境から出る
+deactivate
 ```
 
 ## 画面表示設定
