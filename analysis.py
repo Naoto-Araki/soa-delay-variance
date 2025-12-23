@@ -49,14 +49,18 @@ def load_all_data(data_dir='data_bamba'):
     # SoA_Ratingがない、またはNoneの行を除外
     combined_df = combined_df[combined_df['SoA_Rating'].notna()]
     
-    # キャッチ試行を除外 (negative, 1000)
+    # キャッチ試行を除外 (negative, 1000) - 文字列と数値両方に対応
     combined_df = combined_df[
         (combined_df['Delay_Condition'] != 'negative') & 
+        (combined_df['Delay_Condition'] != '1000') &
         (combined_df['Delay_Condition'] != 1000)
     ]
     
     # Delay_Conditionを数値に変換
-    combined_df['Delay_Condition'] = pd.to_numeric(combined_df['Delay_Condition'])
+    combined_df['Delay_Condition'] = pd.to_numeric(combined_df['Delay_Condition'], errors='coerce')
+    
+    # 変換できなかった行を除外（念のため）
+    combined_df = combined_df[combined_df['Delay_Condition'].notna()]
     
     print(f"\n統合後: {len(combined_df)}行")
     print(f"参加者数: {combined_df['Subject_ID'].nunique()}")
@@ -235,10 +239,139 @@ def main():
     # データ集計
     summary_stats = aggregate_data(df, group_assignment)
     
-    # グラフ描画
-    plot_results(summary_stats, 'result_graph.png')
+    # グラフ描画1: Group A/B分け
+    plot_results(summary_stats, 'result_graph_grouped.png')
+    
+    # グラフ描画2: グループ分けなし（Low/High条件別）
+    plot_combined(df, 'result_graph_combined.png')
+    
+    # グラフ描画3: 個人ごと
+    plot_individual(df, 'result_graph_individual.png')
     
     print("\n=== 完了 ===")
+
+
+def plot_combined(df, output_file='result_combined.png'):
+    """
+    グループ分けなしの結果をプロット（Low/High条件別）
+    
+    Args:
+        df: Block 3のデータ
+        output_file: 出力ファイル名
+    """
+    print("\n=== グラフ描画（グループ分けなし） ===")
+    
+    # Block 3のデータのみ抽出
+    block3_df = df[df['Block'] == 'Block3'].copy()
+    
+    # 参加者ごとの平均を計算
+    individual_means = block3_df.groupby(['Subject_ID', 'Uncertainty_Condition', 'Delay_Condition'])['SoA_Rating'].mean().reset_index()
+    
+    # 条件ごとの統計を計算
+    summary = individual_means.groupby(['Uncertainty_Condition', 'Delay_Condition'])['SoA_Rating'].agg(['mean', 'sem']).reset_index()
+    
+    # プロット
+    sns.set_style('whitegrid')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    colors = {'Low': '#1f77b4', 'High': '#ff7f0e'}
+    
+    for condition in ['Low', 'High']:
+        condition_data = summary[summary['Uncertainty_Condition'] == condition]
+        condition_data = condition_data.sort_values('Delay_Condition')
+        
+        ax.errorbar(
+            condition_data['Delay_Condition'],
+            condition_data['mean'],
+            yerr=condition_data['sem'],
+            marker='o',
+            markersize=8,
+            linestyle='-',
+            linewidth=2,
+            color=colors[condition],
+            label=condition,
+            capsize=5,
+            capthick=2
+        )
+    
+    ax.set_xlabel('Delay (ms)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Sense of Agency Score', fontsize=14, fontweight='bold')
+    ax.set_title('All Participants (No Group Split)', fontsize=16, fontweight='bold')
+    ax.set_ylim(0, 100)
+    ax.legend(title='Uncertainty', fontsize=12, title_fontsize=12)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"グラフを保存しました: {output_file}")
+    plt.show()
+
+
+def plot_individual(df, output_file='result_individual.png'):
+    """
+    個人ごとの結果を1つのグラフに重ねて表示（High/Low条件で色分け）
+    
+    Args:
+        df: Block 3のデータ
+        output_file: 出力ファイル名
+    """
+    print("\n=== グラフ描画（個人ごと） ===")
+    
+    # Block 3のデータのみ抽出
+    block3_df = df[df['Block'] == 'Block3'].copy()
+    
+    # 参加者ごとの平均を計算
+    individual_means = block3_df.groupby(['Subject_ID', 'Uncertainty_Condition', 'Delay_Condition'])['SoA_Rating'].mean().reset_index()
+    
+    # 参加者リスト
+    subjects = individual_means['Subject_ID'].unique()
+    
+    # 1つのグラフ
+    sns.set_style('whitegrid')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # 条件ごとの色
+    colors = {'Low': '#1f77b4', 'High': '#ff7f0e'}
+    
+    for subject in subjects:
+        for condition in ['Low', 'High']:
+            subject_data = individual_means[
+                (individual_means['Subject_ID'] == subject) &
+                (individual_means['Uncertainty_Condition'] == condition)
+            ]
+            
+            if len(subject_data) > 0:
+                subject_data = subject_data.sort_values('Delay_Condition')
+                
+                ax.plot(
+                    subject_data['Delay_Condition'],
+                    subject_data['SoA_Rating'],
+                    marker='o',
+                    markersize=4,
+                    linestyle='-',
+                    linewidth=1.5,
+                    color=colors[condition],
+                    alpha=0.6
+                )
+    
+    # 凡例用のダミーライン
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color=colors['Low'], linewidth=2, label='Low'),
+        Line2D([0], [0], color=colors['High'], linewidth=2, label='High')
+    ]
+    
+    ax.set_xlabel('Delay (ms)', fontsize=12, fontweight='bold')
+    ax.set_ylabel('SoA Score', fontsize=12, fontweight='bold')
+    ax.set_title('Individual Participants', fontsize=14, fontweight='bold')
+    ax.set_ylim(0, 100)
+    ax.legend(handles=legend_elements, title='Uncertainty', fontsize=11, title_fontsize=11, loc='best')
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"グラフを保存しました: {output_file}")
+    plt.show()
 
 
 if __name__ == "__main__":
