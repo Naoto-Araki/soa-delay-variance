@@ -28,12 +28,11 @@ def add_soa_ratings(csv_file: str):
     print(f"\n=== SoA評価入力ツール ===")
     print(f"ファイル: {csv_file}")
     print(f"総試行数: {len(df)}")
-    print(f"\n評価対象試行のみ表示します（キャッチ試行は自動的にスキップ）\n")
+    print(f"\n評価対象試行のみ表示します（Block1とBlock3）\n")
     
-    # 評価対象試行のみフィルタ（Block1とBlock3で、キャッチ試行以外）
+    # 評価対象試行のみフィルタ（Block1とBlock3の全試行）
     rating_trials = df[
-        (df['block_type'].isin(['Block1', 'Block3'])) & 
-        (~df['delay_ms'].isin(['negative', 1000]))
+        df['block_type'].isin(['Block1', 'Block3'])
     ].copy()
     
     print(f"評価対象試行数: {len(rating_trials)}\n")
