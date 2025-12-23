@@ -38,7 +38,7 @@ N_TRIALS_BLOCK3_CATCH = 1
 
 # 画面設定 (MacBook Air 2560x1664 Retina対応)
 WINDOW_SIZE = (1280, 832)
-BAR_WIDTH = 700
+BAR_WIDTH = 1000
 BAR_HEIGHT = 20
 BAR_POS = (0, 0)
 
@@ -287,16 +287,40 @@ class SoAExperiment:
         
         # カーソルを中央にリセット
         left_edge = BAR_POS[0] - BAR_WIDTH / 2
+        right_edge = BAR_POS[0] + BAR_WIDTH / 2
         cursor_x = BAR_POS[0]  # 中央位置
         self.cursor.pos = (cursor_x, BAR_POS[1])
         
-        # 右端のゴール領域の閾値（オレンジ領域の左端）
-        right_threshold = BAR_POS[0] + BAR_WIDTH / 2 - GOAL_AREA_WIDTH
+        # クリック判定: バーの右端から10ピクセル以内
+        right_threshold = BAR_POS[0] + BAR_WIDTH / 2 - 10
         # Negative条件用: ゴール領域の左端をトリガーとする
-        goal_left_edge = right_threshold
+        goal_left_edge = BAR_POS[0] + BAR_WIDTH / 2 - GOAL_AREA_WIDTH
         
-        # 教示
-        self.instruction_text.text = 'カーソルを右端まで動かしてクリックしてください'
+        # 教示（コメントアウト）
+        # self.instruction_text.text = 'カーソルを右端まで動かしてクリックしてください'
+        
+        # 前の試行のボタン押しっぱなしを防ぐため、ボタンが離されるまで待機
+        while self.mouse.getPressed()[0]:
+            core.wait(0.01)
+            event.clearEvents()
+        
+        # 試行間の待機（0.5秒、カーソルは中央に固定表示）
+        wait_end = core.getTime() + 0.5
+        
+        while core.getTime() < wait_end:
+            # カーソルは中央に固定表示
+            self.cursor.pos = (cursor_x, BAR_POS[1])
+            
+            # 描画
+            self.bar.draw()
+            self.start_marker.draw()
+            self.goal_bar.draw()
+            self.goal_left_marker.draw()
+            self.goal_right_marker.draw()
+            self.cursor.draw()
+            self.win.flip()
+            
+            core.wait(0.01)
         
         # フラグ
         clicked = False
@@ -306,7 +330,7 @@ class SoAExperiment:
         trigger_passed = False
         
         while not clicked:
-            # マウス位置取得
+            # マウス位置を取得（絶対座標）
             mouse_pos = self.mouse.getPos()
             cursor_x = mouse_pos[0]
             
@@ -332,7 +356,7 @@ class SoAExperiment:
             self.goal_left_marker.draw()
             self.goal_right_marker.draw()
             self.cursor.draw()
-            self.instruction_text.draw()
+            # self.instruction_text.draw()  # 教示テキストはコメントアウト
             self.win.flip()
             
             # クリック判定（右端のゴール領域に到達）
@@ -343,18 +367,67 @@ class SoAExperiment:
                     
                     # 通常の遅延（負の遅延でない場合）
                     if delay != 'negative':
-                        # 遅延後に音を鳴らす
-                        core.wait(delay / 1000.0)
+                        # 遅延中も画面更新を継続
+                        wait_end = core.getTime() + delay / 1000.0
+                        while core.getTime() < wait_end:
+                            mouse_pos = self.mouse.getPos()
+                            temp_cursor_x = max(left_edge, min(right_edge, mouse_pos[0]))
+                            self.cursor.pos = (temp_cursor_x, BAR_POS[1])
+                            
+                            self.bar.draw()
+                            self.start_marker.draw()
+                            self.goal_bar.draw()
+                            self.goal_left_marker.draw()
+                            self.goal_right_marker.draw()
+                            self.cursor.draw()
+                            self.win.flip()
+                            core.wait(0.01)
+                        
                         self.tone.play()
                         tone_time = core.getTime()
                         tone_played = True
+                    else:
+                        # Negative条件: クリック後に短い待機（画面更新継続）
+                        wait_end = core.getTime() + 0.05
+                        while core.getTime() < wait_end:
+                            mouse_pos = self.mouse.getPos()
+                            temp_cursor_x = max(left_edge, min(right_edge, mouse_pos[0]))
+                            self.cursor.pos = (temp_cursor_x, BAR_POS[1])
+                            
+                            self.bar.draw()
+                            self.start_marker.draw()
+                            self.goal_bar.draw()
+                            self.goal_left_marker.draw()
+                            self.goal_right_marker.draw()
+                            self.cursor.draw()
+                            self.win.flip()
+                            core.wait(0.01)
+                    
+                    # ボタンが離されるまで待機（複数回クリック防止）
+                    while self.mouse.getPressed()[0]:
+                        core.wait(0.01)
             
             # ESCで終了
             if 'escape' in event.getKeys():
                 self.quit()
         
-        # 音が鳴るまで待機
-        core.wait(0.2)
+        # 試行終了後の短い待機（画面更新を継続）
+        end_time = core.getTime() + 0.2
+        while core.getTime() < end_time:
+            # マウス位置を取得してカーソルを更新
+            mouse_pos = self.mouse.getPos()
+            cursor_x = max(left_edge, min(right_edge, mouse_pos[0]))
+            self.cursor.pos = (cursor_x, BAR_POS[1])
+            
+            # 描画
+            self.bar.draw()
+            self.start_marker.draw()
+            self.goal_bar.draw()
+            self.goal_left_marker.draw()
+            self.goal_right_marker.draw()
+            self.cursor.draw()
+            self.win.flip()
+            core.wait(0.01)
         
         # SoA評定（紙で回収するためコメントアウト）
         soa_rating = None
@@ -408,14 +481,14 @@ class SoAExperiment:
         """Block 1 (No adaptation/Baseline) を実行
         評価対象9水準×3回 + キャッチ2水準×1回 = 合計29回
         """
-        self.show_instruction("""
-Block 1: ベースライン測定
-
-様々な遅延条件で音が鳴ります。
-各試行で、音が自分のクリックによって鳴ったと感じた程度を評定してください。
-
-準備ができたらスペースキーを押してください。
-""")
+        # self.show_instruction("""
+# Block 1: ベースライン測定
+# 
+# 様々な遅延条件で音が鳴ります。
+# 各試行で、音が自分のクリックによって鳴ったと感じた程度を評定してください。
+# 
+# 準備ができたらスペースキーを押してください。
+# """)
         
         # 評価対象試行（Target Trials）: 9水準 × 3回 = 27回
         target_trials = TARGET_DELAYS * N_TRIALS_BLOCK1_TARGET
@@ -498,14 +571,14 @@ Block 1: ベースライン測定
         - Low条件: 0ms固定で160回
         - High条件: N(0, 80²)離散化で200回
         """
-        self.show_instruction("""
-Block 2: 学習フェーズ
-
-このブロックでは評定は行いません。
-カーソルを動かしてクリックするタスクを繰り返してください。
-
-準備ができたらスペースキーを押してください。
-""")
+        # self.show_instruction("""
+# Block 2: 学習フェーズ
+# 
+# このブロックでは評定は行いません。
+# カーソルを動かしてクリックするタスクを繰り返してください。
+# 
+# 準備ができたらスペースキーを押してください。
+# """)
         
         if self.condition == 'Low':
             # Low条件: 0ms固定で160回
@@ -528,14 +601,14 @@ Block 2: 学習フェーズ
         評価対象9水準×1回 + キャッチ2水準×1回 = 合計11回
         遅延差が250ms以下になるようにソートして提示
         """
-        self.show_instruction("""
-Block 3: テスト
-
-再び様々な遅延条件で音が鳴ります。
-各試行で、音が自分のクリックによって鳴ったと感じた程度を評定してください。
-
-準備ができたらスペースキーを押してください。
-""")
+        # self.show_instruction("""
+# Block 3: テスト
+# 
+# 再び様々な遅延条件で音が鳴ります。
+# 各試行で、音が自分のクリックによって鳴ったと感じた程度を評定してください。
+# 
+# 準備ができたらスペースキーを押してください。
+# """)
         
         # 評価対象試行（Target Trials）: 9水準 × 1回 = 9回
         target_trials = TARGET_DELAYS * N_TRIALS_BLOCK3_TARGET
@@ -619,42 +692,54 @@ Block 3: テスト
     
     def run(self):
         """実験全体を実行"""
-        # 開始教示
-        self.show_instruction("""
-操作主体感（Sense of Agency）実験へようこそ
-
-この実験では、画面上のカーソルをマウスで動かし、
-右端でクリックすると音が鳴ります。
-
-音が自分のクリックによって鳴ったと感じた程度を評定していただきます。
-
-準備ができたらスペースキーを押してください。
-""")
+        # 開始教示（コメントアウト）
+        # self.show_instruction("""
+# 操作主体感（Sense of Agency）実験へようこそ
+# 
+# この実験では、画面上のカーソルをマウスで動かし、
+# 右端でクリックすると音が鳴ります。
+# 
+# 音が自分のクリックによって鳴ったと感じた程度を評定していただきます。
+# 
+# 準備ができたらスペースキーを押してください。
+# """)
         
         # Block 1を実行
         self.run_block1()
         
+        # Block 1終了の表示
+        self.show_instruction("終了です\n\nスペースキーを押して次に進んでください")
+        
         # [Block 2 -> Block 3] を3回繰り返す
         for cycle in range(3):
-            self.show_instruction(f"""
-サイクル {cycle + 1} / 3
-
-短い休憩です。
-
-準備ができたらスペースキーを押してください。
-""")
+            # サイクル間の教示（コメントアウト）
+            # self.show_instruction(f"""
+# サイクル {cycle + 1} / 3
+# 
+# 短い休憩です。
+# 
+# 準備ができたらスペースキーを押してください。
+# """)
             
             self.run_block2()
+            
+            # Block 2終了の表示
+            self.show_instruction("終了です\n\nスペースキーを押して次に進んでください")
+            
             self.run_block3()
+            
+            # Block 3終了の表示（最後のサイクルでない場合）
+            if cycle < 2:
+                self.show_instruction("終了です\n\nスペースキーを押して次に進んでください")
         
-        # 終了
-        self.show_instruction("""
-実験終了
-
-お疲れ様でした！
-
-スペースキーを押して終了してください。
-""")
+        # 終了教示（コメントアウト）
+        # self.show_instruction("""
+# 実験終了
+# 
+# お疲れ様でした！
+# 
+# スペースキーを押して終了してください。
+# """)
         
         # データ保存
         self.save_data()
