@@ -16,8 +16,10 @@ lastrun.py
 
 # Data files
 data/
+data_bamba/
 *.csv
 *.json
+*.png
 
 # IDE
 .vscode/
