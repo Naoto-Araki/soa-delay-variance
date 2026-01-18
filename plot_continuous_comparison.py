@@ -108,6 +108,59 @@ def fit_recovery_segments(df):
     return fit_results
 
 
+def save_legend_separately(csv_files: list):
+    """
+    凡例のみを別画像として保存
+    
+    Args:
+        csv_files: CSVファイルのパスのリスト
+    """
+    # 凡例用の図を作成
+    fig_legend = plt.figure(figsize=(6, len(csv_files) * 0.5 + 0.5))
+    ax_legend = fig_legend.add_subplot(111)
+    
+    # データセットごとの色
+    colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', 
+              '#34495e', '#e67e22', '#16a085', '#c0392b']
+    
+    # 各ファイルのラベルと色を作成
+    handles = []
+    labels = []
+    
+    for idx, csv_file in enumerate(csv_files):
+        # データ読み込み（メタ情報のみ）
+        df = pd.read_csv(csv_file)
+        condition = df['condition'].iloc[0]
+        mu_delay = df['mu_delay'].iloc[0]
+        
+        # データセット名（アルファベット順に被験者A、B、C...）
+        participant_label = chr(65 + idx)  # 65 = 'A'
+        dataset_label = f"被験者{participant_label}"
+        color = colors[idx % len(colors)]
+        
+        # 凡例用のハンドルを作成
+        line = plt.Line2D([0], [0], color=color, linewidth=2.5, alpha=0.8)
+        handles.append(line)
+        labels.append(dataset_label)
+    
+    # 凡例のみを表示
+    ax_legend.legend(handles, labels, loc='center', fontsize=12, frameon=False)
+    ax_legend.axis('off')
+    
+    # 保存
+    if len(csv_files) == 2:
+        base1 = Path(csv_files[0]).stem
+        base2 = Path(csv_files[1]).stem
+        output_file = f'data_continuous/{base1}_vs_{base2}_legend.png'
+    else:
+        output_file = f'data_continuous/comparison_{len(csv_files)}files_legend.png'
+    
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"凡例を保存しました: {output_file}")
+
+
 def plot_comparison(csv_files: list, save_fig: bool = True):
     """
     複数のSoA評定結果を近似線のみで比較プロット
@@ -129,12 +182,12 @@ def plot_comparison(csv_files: list, save_fig: bool = True):
         df = pd.read_csv(csv_file)
         
         # メタ情報
-        subject_id = df['subject_id'].iloc[0]
         condition = df['condition'].iloc[0]
         mu_delay = df['mu_delay'].iloc[0]
         
-        # データセット名
-        dataset_label = f"{subject_id} (Cond {condition}, {mu_delay}ms)"
+        # データセット名（アルファベット順に被験者A、B、C...）
+        participant_label = chr(65 + idx)  # 65 = 'A'
+        dataset_label = f"被験者{participant_label}"
         
         # プロット色
         color = colors[idx % len(colors)]
@@ -217,6 +270,9 @@ def main():
     
     print(f"{len(csv_files)}個のファイルを比較プロット中...")
     plot_comparison(csv_files, save_fig=True)
+    
+    # 凡例を別画像として保存
+    save_legend_separately(csv_files)
 
 
 if __name__ == '__main__':
