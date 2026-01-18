@@ -4,7 +4,26 @@ PsychoPyを使用した操作主体感（Sense of Agency, SoA）測定実験プ�
 
 ## 実験ファイル
 
-### 1. experiment.py - 境界トリガー音提示実験
+### 1. experiment_continuous_rating.py - 逐次SoA評定実験（Bamba et al. 2020ベース）
+
+各試行後にVASスケールでSoAを即座に評定する逐次計測実験です。
+
+**特徴：**
+- 試行ごとのVAS評定（0-100%, 10%刻み目盛り、50%ハイライト）
+- 3つの実験条件（A: 統制, B: 学習阻害, C: 学習促進）
+- 60試行構成（Baseline 1-20, Intervention 21-40, Washout 41-60）
+- task_delayとans_delay独立制御
+- カーソルリセット機能付きブラックアウト期間（500ms）
+- 74 dB SPL音声フィードバック（440Hz, 50ms）
+
+**実行方法：**
+```bash
+python experiment_continuous_rating.py
+```
+
+**データ保存：** `data_continuous/{参加者ID}_condition{A/B/C}_{日時}.csv`
+
+### 2. experiment.py - 境界トリガー音提示実験
 
 マウス操作による境界トリガータスクで、遅延分布の分散変化に対するSoA評定の変化を測定します。
 
@@ -20,7 +39,7 @@ python experiment.py
 
 **データ保存：** `data/{参加者ID}_{日時}_seed{シード値}.csv`
 
-### 2. experiment_bamba2020.py - Bamba & Yanagisawa (2020) 実装
+### 3. experiment_bamba2020.py - Bamba & Yanagisawa (2020) 実装
 
 Bamba & Yanagisawa (2020) Experiment 1の再現実験プログラムです。
 
@@ -35,7 +54,45 @@ Bamba & Yanagisawa (2020) Experiment 1の再現実験プログラムです。
 python experiment_bamba2020.py
 ```
 
-**データ保存：** `data/{参加者ID}_{日時}_condition{Low/High}.csv`
+**データ保存：** `data_bamba/{参加者ID}_{日時}_condition{Low/High}.csv`
+
+## データ可視化スクリプト
+
+### plot_continuous_results.py - 単一参加者結果可視化
+
+逐次評定実験（experiment_continuous_rating.py）の結果を回復曲線でフィッティング・可視化します。
+
+**機能：**
+- 3区間独立の回復曲線フィッティング: y = b + A(1 - e^(-k(x-c)))
+- 散布図＋フィッティング曲線の重畳表示
+- ステップ境界線の表示（試行20, 40）
+- 自動パラメータ初期化（b=y(c), A=max(y)-b, k=0.1）
+
+**実行方法：**
+```bash
+python plot_continuous_results.py data_continuous/参加者ID_conditionX_日時.csv
+```
+
+**保存先：** `data_continuous/参加者ID_conditionX_日時_plot.png`
+
+### plot_continuous_comparison.py - 複数参加者比較
+
+複数参加者の回復曲線を重ね合わせて比較表示します。
+
+**機能：**
+- 曲線のみ表示（散布図なし）でクリーンな比較
+- 参加者ごとに異なる色（被験者A, B, C...と自動ラベル）
+- 凡例を別画像として自動保存
+- タイトル・凡例非表示でプレゼンテーション対応
+
+**実行方法：**
+```bash
+python plot_continuous_comparison.py file1.csv file2.csv [file3.csv ...]
+```
+
+**保存先：**
+- メイングラフ: `data_continuous/comparison_Xfiles.png`
+- 凡例画像: `data_continuous/comparison_Xfiles_legend.png`
 
 ## セットアップ
 
@@ -50,7 +107,7 @@ python experiment_bamba2020.py
 python3.10 -m venv .venv
 
 # パッケージをインストール
-./.venv/bin/pip install psychopy numpy pandas matplotlib seaborn
+./.venv/bin/pip install psychopy numpy pandas matplotlib scipy pygame
 
 # 仮想環境を有効化
 source .venv/bin/activate
@@ -78,20 +135,34 @@ deactivate
 
 ```
 soa-delay-variance/
-├── experiment.py           # 境界トリガー音提示実験
-├── experiment_bamba2020.py # Bamba & Yanagisawa (2020)実装
-├── config.py              # experiment.py用設定ファイル
-├── utils.py               # ユーティリティ関数
-├── audio.py               # 音生成モジュール
-├── logger.py              # ログ記録システム
-├── plot_test_results.py   # テスト結果可視化スクリプト
-├── test_components.py     # テストスクリプト
-├── data/                  # データ保存ディレクトリ（自動生成）
-└── .venv/                 # Python仮想環境
+├── experiment.py                    # 境界トリガー音提示実験
+├── experiment_bamba2020.py          # Bamba & Yanagisawa (2020)実装
+├── experiment_continuous_rating.py  # 逐次SoA評定実験
+├── config.py                        # experiment.py用設定ファイル
+├── utils.py                         # ユーティリティ関数
+├── audio.py                         # 音生成モジュール
+├── logger.py                        # ログ記録システム
+├── plot_continuous_results.py       # 単一参加者結果可視化
+├── plot_continuous_comparison.py    # 複数参加者比較
+├── plot_test_results.py             # テスト結果可視化スクリプト
+├── test_components.py               # テストスクリプト
+├── EXPERIMENT_SPEC.md               # 逐次評定実験の詳細仕様書
+├── data/                            # 境界トリガー実験データ
+├── data_bamba/                      # Bamba実験データ
+├── data_continuous/                 # 逐次評定実験データ（CSV + PNG）
+└── .venv/                           # Python仮想環境
 ```
 
 ## データ形式
 
+### 逐次評定実験（experiment_continuous_rating.py）
+**CSV形式：**
+- 被験者ID、条件（A/B/C）、mu_delay
+- 試行番号、ステップ（Pre/Intervention/Washout）
+- task_delay、ans_delay、soa_rating（0-100）
+- action_time、feedback_time、タイムスタンプ
+
+### その他の実験
 両実験ともCSV形式で保存されます。主な記録項目：
 - 被験者ID、条件、ブロック情報
 - 試行番号、遅延時間
@@ -106,9 +177,12 @@ soa-delay-variance/
 ### Python バージョンエラー
 PsychoPyはPython 3.13に対応していません。必ずPython 3.10または3.11を使用してください。
 
+### 音声レベル調整（逐次評定実験）
+experiment_continuous_rating.pyでは音量が1.0（最大）に設定されています。実験前に74 dB SPLになるよう外部音量を調整してください。
+
 ---
 
 **作成日**: 2025年12月18日  
-**更新日**: 2025年12月22日  
+**更新日**: 2026年1月18日  
 **フレームワーク**: PsychoPy 2025.x  
 **推奨Python**: 3.10
