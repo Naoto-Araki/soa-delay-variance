@@ -153,7 +153,7 @@ def plot_soa_results(csv_file: str, save_fig: bool = True):
     # 回復曲線フィッティング
     fit_results = fit_recovery_segments(df)
     for fit_result in fit_results:
-        ax.plot(fit_result['x'], fit_result['y'], color='black', 
+        ax.plot(fit_result['x'], fit_result['y'], color='#3498db', 
                 linewidth=2, linestyle='-', alpha=0.8)
     
     # ステップの境界線
