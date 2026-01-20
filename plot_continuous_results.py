@@ -132,7 +132,7 @@ def plot_soa_results(csv_file: str, save_fig: bool = True):
     
     # Step別に色分け
     step_colors = {
-        'Step1_Baseline': '#3498db',      # 青
+        'Step1_Baseline': '#000000',      # 黒
         'Step2_Intervention': '#e74c3c',  # 赤
         'Step3_Washout': '#2ecc71'        # 緑
     }

@@ -119,11 +119,10 @@ def save_legend_separately(csv_files: list):
     fig_legend = plt.figure(figsize=(6, len(csv_files) * 0.5 + 0.5))
     ax_legend = fig_legend.add_subplot(111)
     
-    # データセットごとの色
-    colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', 
-              '#34495e', '#e67e22', '#16a085', '#c0392b']
+    # データセットごとのラインスタイル（全て黒）
+    linestyles = ['-', '--', '-.', ':']
     
-    # 各ファイルのラベルと色を作成
+    # 各ファイルのラベルとラインスタイルを作成
     handles = []
     labels = []
     
@@ -135,11 +134,11 @@ def save_legend_separately(csv_files: list):
         
         # データセット名（アルファベット順に被験者A、B、C...）
         participant_label = chr(65 + idx)  # 65 = 'A'
-        dataset_label = f"被験者{participant_label}"
-        color = colors[idx % len(colors)]
+        dataset_label = f"Participant {participant_label}"
+        linestyle = linestyles[idx % len(linestyles)]
         
-        # 凡例用のハンドルを作成
-        line = plt.Line2D([0], [0], color=color, linewidth=2.5, alpha=0.8)
+        # 凡例用のハンドルを作成（青色で表示）
+        line = plt.Line2D([0], [0], color='#3498db', linestyle=linestyle, linewidth=2.5, alpha=0.8)
         handles.append(line)
         labels.append(dataset_label)
     
@@ -172,9 +171,8 @@ def plot_comparison(csv_files: list, save_fig: bool = True):
     # 図の作成
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    # データセットごとの色
-    colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', 
-              '#34495e', '#e67e22', '#16a085', '#c0392b']
+    # データセットごとのラインスタイル（全て青）
+    linestyles = ['-', '--', '-.', ':']
     
     # 各CSVファイルをプロット
     for idx, csv_file in enumerate(csv_files):
@@ -187,24 +185,24 @@ def plot_comparison(csv_files: list, save_fig: bool = True):
         
         # データセット名（アルファベット順に被験者A、B、C...）
         participant_label = chr(65 + idx)  # 65 = 'A'
-        dataset_label = f"被験者{participant_label}"
+        dataset_label = f"Participant {participant_label}"
         
-        # プロット色
-        color = colors[idx % len(colors)]
+        # プロットスタイル（全て青、ラインスタイルで区別）
+        linestyle = linestyles[idx % len(linestyles)]
         
         # 回復曲線フィッティング
         fit_results = fit_recovery_segments(df)
         
-        # 3つのセグメントを繋げて1本の線として描画
+        # 3つのセグメントを青色のラインスタイルで描画
         for i, fit_result in enumerate(fit_results):
             if i == 0:
                 # 最初のセグメントのみラベルを付ける
-                ax.plot(fit_result['x'], fit_result['y'], color=color, 
-                       linewidth=2.5, alpha=0.8, label=dataset_label)
+                ax.plot(fit_result['x'], fit_result['y'], color='#3498db', 
+                       linestyle=linestyle, linewidth=2.5, alpha=0.8, label=dataset_label)
             else:
                 # 2番目以降はラベルなし
-                ax.plot(fit_result['x'], fit_result['y'], color=color, 
-                       linewidth=2.5, alpha=0.8)
+                ax.plot(fit_result['x'], fit_result['y'], color='#3498db', 
+                       linestyle=linestyle, linewidth=2.5, alpha=0.8)
     
     # ステップの境界線
     ax.axvline(x=20, color='gray', linestyle=':', linewidth=2, alpha=0.5)
