@@ -63,16 +63,18 @@ DATA_DIR.mkdir(exist_ok=True)
 class ContinuousRatingExperiment:
     """連続評定型SoA実験のメインクラス"""
     
-    def __init__(self, subject_id: str, condition: str, mu_delay: int):
+    def __init__(self, subject_id: str, condition: str, mu_delay: int, ans_delay_ratio: float = None):
         """
         Args:
             subject_id: 参加者ID
-            condition: 実験条件 ('A', 'B', or 'C')
+            condition: 実験条件 ('A', 'B', 'C', or 'D')
             mu_delay: 遅延パラメータ (ms)
+            ans_delay_ratio: 評定時の遅延比率 (条件Dで使用, 0.0-1.0)
         """
         self.subject_id = subject_id
         self.condition = condition
         self.mu_delay = mu_delay
+        self.ans_delay_ratio = ans_delay_ratio
         self.date_str = datetime.now().strftime('%Y%m%d_%H%M%S')
         
         # ウィンドウ作成
@@ -751,6 +753,10 @@ class ContinuousRatingExperiment:
             # Cond C: Task=mu_delay, Ans=mu_delay (学習促進)
             task_delay = self.mu_delay
             ans_delay = self.mu_delay
+        elif self.condition == 'D':
+            # Cond D: Task=mu_delay, Ans=ratio*mu_delay (カスタム比率)
+            task_delay = self.mu_delay
+            ans_delay = int(self.ans_delay_ratio * self.mu_delay)
         
         for i in range(21, 41):
             trial_sequence.append({
@@ -788,8 +794,9 @@ def get_experiment_info():
     """実験情報をダイアログで取得"""
     dlg = gui.Dlg(title="SoA逐次計測実験 - 設定")
     dlg.addField('参加者ID:', 'P001')
-    dlg.addField('Condition:', choices=['A', 'B', 'C'])
+    dlg.addField('Condition:', choices=['A', 'B', 'C', 'D'])
     dlg.addField('遅延パラメータ (ms):', 200)
+    dlg.addField('評定遅延比率 (条件Dのみ):', choices=['0 (遅延なし)', '0.5 (1/2)', '0.75 (3/4)', '1.0 (全遅延)'])
     
     dlg_data = dlg.show()
     
@@ -797,7 +804,19 @@ def get_experiment_info():
         subject_id = dlg_data[0]
         condition = dlg_data[1]
         mu_delay = int(dlg_data[2])
-        return subject_id, condition, mu_delay
+        
+        # 評定遅延比率を解析
+        ratio_str = dlg_data[3]
+        if '0.5' in ratio_str:
+            ans_delay_ratio = 0.5
+        elif '0.75' in ratio_str:
+            ans_delay_ratio = 0.75
+        elif '1.0' in ratio_str:
+            ans_delay_ratio = 1.0
+        else:  # '0' または デフォルト
+            ans_delay_ratio = 0.0
+        
+        return subject_id, condition, mu_delay, ans_delay_ratio
     else:
         core.quit()
         sys.exit()
@@ -806,17 +825,19 @@ def get_experiment_info():
 def main():
     """メイン関数"""
     # 実験情報を取得
-    subject_id, condition, mu_delay = get_experiment_info()
+    subject_id, condition, mu_delay, ans_delay_ratio = get_experiment_info()
     
     print(f"\n=== 実験設定 ===")
     print(f"参加者ID: {subject_id}")
     print(f"Condition: {condition}")
     print(f"遅延パラメータ: {mu_delay}ms")
+    if condition == 'D':
+        print(f"評定遅延比率: {ans_delay_ratio} (評定遅延: {int(ans_delay_ratio * mu_delay)}ms)")
     print(f"試行数: 60 (Step 1: 1-20, Step 2: 21-40, Step 3: 41-60)")
     print(f"================\n")
     
     # 実験を実行
-    exp = ContinuousRatingExperiment(subject_id, condition, mu_delay)
+    exp = ContinuousRatingExperiment(subject_id, condition, mu_delay, ans_delay_ratio)
     exp.run()
 
 
