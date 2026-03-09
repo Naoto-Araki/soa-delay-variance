@@ -121,12 +121,12 @@ class ContinuousRatingExperiment:
             lineColor='white'
         )
         
-        # カーソル（赤い縦線）
+        # カーソル（赤い縦線）- 初期位置は中央
         self.cursor = visual.Rect(
             win=self.win,
             width=CURSOR_WIDTH,
             height=CURSOR_HEIGHT,
-            pos=(left_edge, BAR_POS[1]),
+            pos=(BAR_POS[0], BAR_POS[1]),  # 中央位置に変更
             fillColor=CURSOR_COLOR,
             lineColor=CURSOR_COLOR
         )
@@ -395,11 +395,25 @@ class ContinuousRatingExperiment:
         # カーソルは常にマウス位置に追従（実時間対応）
         interval_start = core.getTime()
         
+        # 初期マウス位置を記録
+        prev_mouse_x = self.mouse.getPos()[0]
+        
         while core.getTime() - interval_start < 0.5:
-            # マウス位置を取得してカーソルを更新
-            mouse_pos = self.mouse.getPos()
-            cursor_x = max(left_edge, min(right_edge, mouse_pos[0]))
+            # 現在のマウス位置を取得
+            current_mouse_x = self.mouse.getPos()[0]
+            
+            # マウスの移動量を計算
+            delta_x = current_mouse_x - prev_mouse_x
+            
+            # カーソル位置を更新（移動量を加算）
+            cursor_x = self.cursor.pos[0] + delta_x
+            
+            # カーソル位置を範囲内に制限
+            cursor_x = max(left_edge, min(right_edge, cursor_x))
             self.cursor.pos = (cursor_x, BAR_POS[1])
+            
+            # 前回位置を更新
+            prev_mouse_x = current_mouse_x
             
             self._draw_bar_scene()
             self.win.flip()
@@ -410,14 +424,25 @@ class ContinuousRatingExperiment:
         click_time = None
         sound_time = None
         
+        # 初期マウス位置を記録
+        prev_mouse_x = self.mouse.getPos()[0]
+        
         while not clicked:
-            # マウス位置を取得してカーソルを更新
-            mouse_pos = self.mouse.getPos()
-            cursor_x = mouse_pos[0]
+            # 現在のマウス位置を取得
+            current_mouse_x = self.mouse.getPos()[0]
             
-            # カーソル位置を制限（バーの範囲内）
+            # マウスの移動量を計算
+            delta_x = current_mouse_x - prev_mouse_x
+            
+            # カーソル位置を更新（移動量を加算）
+            cursor_x = self.cursor.pos[0] + delta_x
+            
+            # カーソル位置を範囲内に制限
             cursor_x = max(left_edge, min(right_edge, cursor_x))
             self.cursor.pos = (cursor_x, BAR_POS[1])
+            
+            # 前回位置を更新
+            prev_mouse_x = current_mouse_x
             
             # 画面描画
             self._draw_bar_scene()
@@ -434,11 +459,15 @@ class ContinuousRatingExperiment:
                     if task_delay > 0:
                         # 遅延中も画面更新を継続（低遅延レンダリング）
                         delay_end = core.getTime() + task_delay / 1000.0
+                        delay_prev_mouse_x = self.mouse.getPos()[0]
                         while core.getTime() < delay_end:
-                            # マウス位置を更新してカーソルを描画
-                            temp_mouse_pos = self.mouse.getPos()
-                            temp_cursor_x = max(left_edge, min(right_edge, temp_mouse_pos[0]))
+                            # マウスの移動量を計算してカーソルを更新
+                            delay_current_mouse_x = self.mouse.getPos()[0]
+                            delay_delta_x = delay_current_mouse_x - delay_prev_mouse_x
+                            temp_cursor_x = self.cursor.pos[0] + delay_delta_x
+                            temp_cursor_x = max(left_edge, min(right_edge, temp_cursor_x))
                             self.cursor.pos = (temp_cursor_x, BAR_POS[1])
+                            delay_prev_mouse_x = delay_current_mouse_x
                             self._draw_bar_scene()
                             self.win.flip()
                             core.wait(0.001)  # 1ms間隔で更新
@@ -450,11 +479,15 @@ class ContinuousRatingExperiment:
                     # 音が鳴った後、0.5秒間そのまま表示を維持
                     post_sound_duration = 0.5  # 500ms
                     post_sound_end = core.getTime() + post_sound_duration
+                    post_prev_mouse_x = self.mouse.getPos()[0]
                     while core.getTime() < post_sound_end:
-                        # マウス位置を更新してカーソルを描画
-                        temp_mouse_pos = self.mouse.getPos()
-                        temp_cursor_x = max(left_edge, min(right_edge, temp_mouse_pos[0]))
+                        # マウスの移動量を計算してカーソルを更新
+                        post_current_mouse_x = self.mouse.getPos()[0]
+                        post_delta_x = post_current_mouse_x - post_prev_mouse_x
+                        temp_cursor_x = self.cursor.pos[0] + post_delta_x
+                        temp_cursor_x = max(left_edge, min(right_edge, temp_cursor_x))
                         self.cursor.pos = (temp_cursor_x, BAR_POS[1])
+                        post_prev_mouse_x = post_current_mouse_x
                         self._draw_bar_scene()
                         self.win.flip()
                         time.sleep(0.01)
@@ -551,14 +584,25 @@ class ContinuousRatingExperiment:
         rating_obtained = False
         rating_value = None
         
+        # 初期マウス位置を記録
+        vas_prev_mouse_x = self.mouse.getPos()[0]
+        
         while not rating_obtained:
-            # マウス位置を取得
-            mouse_pos = self.mouse.getPos()
-            vas_cursor_x = mouse_pos[0]
+            # 現在のマウス位置を取得
+            vas_current_mouse_x = self.mouse.getPos()[0]
             
-            # カーソル位置を制限（VASスケールの範囲内）
+            # マウスの移動量を計算
+            vas_delta_x = vas_current_mouse_x - vas_prev_mouse_x
+            
+            # カーソル位置を更新（移動量を加算）
+            vas_cursor_x = self.vas_cursor.pos[0] + vas_delta_x
+            
+            # カーソル位置を範囲内に制限
             vas_cursor_x = max(vas_left_edge, min(vas_right_edge, vas_cursor_x))
             self.vas_cursor.pos = (vas_cursor_x, VAS_Y_POSITION)
+            
+            # 前回位置を更新
+            vas_prev_mouse_x = vas_current_mouse_x
             
             # VAS評定画面を描画
             self.vas_question.draw()
@@ -682,6 +726,13 @@ class ContinuousRatingExperiment:
 
             準備ができたら、スペースキーを押してください。
         """)
+        
+        # 実験開始前にマウスとカーソルを中央に初期化
+        try:
+            self.mouse.setPos((0, 0))  # マウスを画面中央に移動
+        except:
+            pass
+        self.cursor.pos = (BAR_POS[0], BAR_POS[1])  # カーソルを中央に配置
         
         # 試行シーケンスを生成
         trial_sequence = self._generate_trial_sequence()
