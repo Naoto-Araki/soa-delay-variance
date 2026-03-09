@@ -419,6 +419,9 @@ class ContinuousRatingExperiment:
             self.win.flip()
             core.wait(0.01)
         
+        # 条件付けフェーズ開始時刻（RT計算用）
+        task_phase_start_time = core.getTime()
+        
         # ========== Step 2: 動作遂行 (Action) ==========
         clicked = False
         click_time = None
@@ -519,11 +522,12 @@ class ContinuousRatingExperiment:
         self.cursor.pos = (BAR_POS[0], BAR_POS[1])  # バーの中央位置
         
         # ========== Step 4: 即時評定 (Immediate Rating) ==========
-        soa_rating = self._get_immediate_vas_rating(trial_num, ans_delay)
+        soa_rating, rating_rt = self._get_immediate_vas_rating(trial_num, ans_delay)
         
         # 実測値の計算
         actual_action_time = click_time - trial_start_time if click_time else None
         actual_sound_time = sound_time - trial_start_time if sound_time else None
+        task_rt = click_time - task_phase_start_time if click_time else None
         
         # データ記録
         trial_data = {
@@ -533,6 +537,8 @@ class ContinuousRatingExperiment:
             'ans_delay_ms': ans_delay,
             'actual_action_time_s': actual_action_time,
             'actual_sound_time_s': actual_sound_time,
+            'task_rt_s': task_rt,
+            'rating_rt_s': rating_rt,
             'soa_rating': soa_rating,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         }
@@ -548,7 +554,7 @@ class ContinuousRatingExperiment:
         self.goal_right_marker.draw()
         self.cursor.draw()
     
-    def _get_immediate_vas_rating(self, trial_num: int, ans_delay: float) -> float:
+    def _get_immediate_vas_rating(self, trial_num: int, ans_delay: float) -> tuple:
         """
         即時VAS評定を取得（A案仕様）+ 聴覚フィードバック
         
@@ -563,7 +569,7 @@ class ContinuousRatingExperiment:
             ans_delay: 評定時の聴覚フィードバック遅延（ms）
         
         Returns:
-            VAS評定値 (0-100)
+            tuple: (VAS評定値 (0-100), 反応時間 (s))
         """
         # VASカーソルを中央に初期化
         vas_cursor_x = 0
@@ -583,6 +589,10 @@ class ContinuousRatingExperiment:
         
         rating_obtained = False
         rating_value = None
+        rating_click_time = None
+        
+        # 評定フェーズ開始時刻（RT計算用）
+        rating_phase_start_time = core.getTime()
         
         # 初期マウス位置を記録
         vas_prev_mouse_x = self.mouse.getPos()[0]
@@ -622,6 +632,9 @@ class ContinuousRatingExperiment:
             
             # マウスクリックを検出
             if self.mouse.getPressed()[0]:
+                # クリック時刻を記録
+                rating_click_time = core.getTime()
+                
                 # カーソル位置を0-100の範囲に変換
                 # vas_cursor_x: -VAS_WIDTH/2 ~ VAS_WIDTH/2 → 0 ~ 100
                 rating_value = ((vas_cursor_x - vas_left_edge) / VAS_WIDTH) * 100
@@ -704,7 +717,10 @@ class ContinuousRatingExperiment:
             if 'escape' in keys:
                 self.quit()
         
-        return rating_value
+        # 反応時間を計算
+        rating_rt = rating_click_time - rating_phase_start_time if rating_click_time else None
+        
+        return rating_value, rating_rt
     
     def run(self):
         """実験全体を実行（60試行: Step 1-2-3）"""
